@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Roots</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="app-header">
+      <h1 class="app-title">ROOTS</h1>
+      <p class="app-subtitle">Scale Explorer</p>
+    </header>
+
+    <main class="main-panel">
+      <!-- Scale type selector -->
+      <div class="scale-selector">
+        <label class="selector-label">Scale</label>
+        <div class="scale-tabs" id="scaleTabs"></div>
+      </div>
+
+      <!-- 12-note chromatic grid -->
+      <div class="note-grid" id="noteGrid"></div>
+
+      <!-- Scale degree labels -->
+      <div class="degree-row" id="degreeRow"></div>
+
+      <!-- Root slider section -->
+      <div class="slider-section">
+        <div class="slider-meta">
+          <span class="slider-label">Root</span>
+          <span class="root-display" id="rootDisplay">A</span>
+        </div>
+        <div class="slider-track-wrap">
+          <div class="slider-note-labels" id="sliderLabels"></div>
+          <input
+            type="range"
+            id="rootSlider"
+            class="root-slider"
+            min="0"
+            max="11"
+            value="9"
+            step="1"
+          />
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>
