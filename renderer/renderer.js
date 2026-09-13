@@ -41,15 +41,13 @@ function buildGrid() {
   for (let i = 0; i < 12; i++) {
     const cell = document.createElement('div');
     cell.className = 'note-cell';
-    cell.dataset.index = i;
+    cell.dataset.slot = i;
 
     const name = document.createElement('span');
     name.className = 'note-name';
-    name.textContent = NOTES[i];
 
     const flat = document.createElement('span');
     flat.className = 'note-flat';
-    flat.textContent = NOTE_FLATS[i];
 
     cell.appendChild(name);
     cell.appendChild(flat);
@@ -58,7 +56,7 @@ function buildGrid() {
     // Degree label (below grid)
     const deg = document.createElement('div');
     deg.className = 'degree-cell';
-    deg.dataset.index = i;
+    deg.dataset.slot = i;
     degreeRow.appendChild(deg);
   }
 }
@@ -94,30 +92,31 @@ function render() {
   const scale = SCALES[currentScale];
   const intervalSet = new Set(scale.intervals);
 
-  // Build a map: chromatic position → degree label
-  const degreeMap = {};
+  // Build interval → degree label map for quick lookup
+  const degreeByInterval = {};
   scale.intervals.forEach((interval, i) => {
-    const noteIdx = (rootIndex + interval) % 12;
-    degreeMap[noteIdx] = scale.degrees[i];
+    degreeByInterval[interval] = scale.degrees[i];
   });
 
-  // Update note cells
   const cells = noteGrid.querySelectorAll('.note-cell');
   const degreeCells = degreeRow.querySelectorAll('.degree-cell');
   const sliderNoteLabels = sliderLabels.querySelectorAll('.slider-note-label');
 
+  // Each slot i represents (rootIndex + i) % 12 — root is always slot 0
   cells.forEach((cell, i) => {
-    const semitoneFromRoot = (i - rootIndex + 12) % 12;
-    const inScale = intervalSet.has(semitoneFromRoot);
-    const isRoot = i === rootIndex;
+    const noteIdx = (rootIndex + i) % 12;
+    const inScale = intervalSet.has(i);
+    const isRoot = i === 0;
 
+    cell.querySelector('.note-name').textContent = NOTES[noteIdx];
+    cell.querySelector('.note-flat').textContent = NOTE_FLATS[noteIdx];
     cell.classList.toggle('active', inScale);
     cell.classList.toggle('root', isRoot);
 
     const deg = degreeCells[i];
     deg.classList.toggle('active', inScale);
     deg.classList.toggle('root-degree', isRoot);
-    deg.textContent = degreeMap[i] ?? '';
+    deg.textContent = degreeByInterval[i] ?? '';
   });
 
   // Update slider labels
@@ -128,7 +127,7 @@ function render() {
   // Root display
   rootDisplay.textContent = NOTES[rootIndex];
 
-  // Slider fill (CSS gradient trick for webkit)
+  // Slider fill
   const pct = (rootIndex / 11) * 100;
   rootSlider.style.background = `linear-gradient(to right, var(--slider-fill) 0%, var(--slider-fill) ${pct}%, var(--slider-track) ${pct}%, var(--slider-track) 100%)`;
 }
