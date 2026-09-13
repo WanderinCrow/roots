@@ -2,62 +2,72 @@
 
 // ── Music Data ────────────────────────────────────────────────────────────────
 
-const NOTES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-const NOTE_FLATS = ['', 'Db', '', 'Eb', '', '', 'Gb', '', 'Ab', '', 'Bb', ''];
+const NOTES      = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+const NOTE_FLATS = ['',  'Db', '',  'Eb',  '',  '',  'Gb', '',  'Ab', '',  'Bb',  ''];
 
-// Semitone intervals from root (0 = root)
 const SCALES = {
-  'Major':        { intervals: [0, 2, 4, 5, 7, 9, 11], degrees: ['1', '2', '3', '4', '5', '6', '7'] },
-  'Minor':        { intervals: [0, 2, 3, 5, 7, 8, 10], degrees: ['1', '2', 'b3', '4', '5', 'b6', 'b7'] },
-  'Dorian':       { intervals: [0, 2, 3, 5, 7, 9, 10], degrees: ['1', '2', 'b3', '4', '5', '6', 'b7'] },
-  'Phrygian':     { intervals: [0, 1, 3, 5, 7, 8, 10], degrees: ['1', 'b2', 'b3', '4', '5', 'b6', 'b7'] },
-  'Lydian':       { intervals: [0, 2, 4, 6, 7, 9, 11], degrees: ['1', '2', '3', '#4', '5', '6', '7'] },
-  'Mixolydian':   { intervals: [0, 2, 4, 5, 7, 9, 10], degrees: ['1', '2', '3', '4', '5', '6', 'b7'] },
-  'Locrian':      { intervals: [0, 1, 3, 5, 6, 8, 10], degrees: ['1', 'b2', 'b3', '4', 'b5', 'b6', 'b7'] },
-  'Harm. Minor':  { intervals: [0, 2, 3, 5, 7, 8, 11], degrees: ['1', '2', 'b3', '4', '5', 'b6', '7'] },
-  'Mel. Minor':   { intervals: [0, 2, 3, 5, 7, 9, 11], degrees: ['1', '2', 'b3', '4', '5', '6', '7'] },
-  'Major Penta':  { intervals: [0, 2, 4, 7, 9],        degrees: ['1', '2', '3', '5', '6'] },
-  'Minor Penta':  { intervals: [0, 3, 5, 7, 10],       degrees: ['1', 'b3', '4', '5', 'b7'] },
-  'Blues':        { intervals: [0, 3, 5, 6, 7, 10],    degrees: ['1', 'b3', '4', 'b5', '5', 'b7'] },
+  'Major':       { intervals: [0,2,4,5,7,9,11],  degrees: ['1','2','3','4','5','6','7'] },
+  'Minor':       { intervals: [0,2,3,5,7,8,10],  degrees: ['1','2','b3','4','5','b6','b7'] },
+  'Dorian':      { intervals: [0,2,3,5,7,9,10],  degrees: ['1','2','b3','4','5','6','b7'] },
+  'Phrygian':    { intervals: [0,1,3,5,7,8,10],  degrees: ['1','b2','b3','4','5','b6','b7'] },
+  'Lydian':      { intervals: [0,2,4,6,7,9,11],  degrees: ['1','2','3','#4','5','6','7'] },
+  'Mixolydian':  { intervals: [0,2,4,5,7,9,10],  degrees: ['1','2','3','4','5','6','b7'] },
+  'Locrian':     { intervals: [0,1,3,5,6,8,10],  degrees: ['1','b2','b3','4','b5','b6','b7'] },
+  'Harm. Minor': { intervals: [0,2,3,5,7,8,11],  degrees: ['1','2','b3','4','5','b6','7'] },
+  'Mel. Minor':  { intervals: [0,2,3,5,7,9,11],  degrees: ['1','2','b3','4','5','6','7'] },
+  'Major Penta': { intervals: [0,2,4,7,9],        degrees: ['1','2','3','5','6'] },
+  'Minor Penta': { intervals: [0,3,5,7,10],       degrees: ['1','b3','4','5','b7'] },
+  'Blues':       { intervals: [0,3,5,6,7,10],     degrees: ['1','b3','4','b5','5','b7'] },
 };
+
+// The strip renders 3 full chromatic repetitions (36 cells).
+// The viewport clips to 12 cells. Root is always the leftmost visible cell.
+// Scrolling by rootIndex positions the strip so the correct chromatic starting
+// point appears at position 0 in the viewport.
+//
+// strip width = 300% (3 × 12 cells)
+// cell width  = 1/36 of strip = 1/12 of viewport
+// translateX offset = -(rootIndex + 12) / 36 × 100%   (we use the middle 12-repetition)
+
+const STRIP_CELLS = 36; // 3 × 12
+const SLIDE_DURATION = '0.32s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
 
 // ── State ─────────────────────────────────────────────────────────────────────
 
-let rootIndex = 9;          // A
+let rootIndex    = 9;       // A
 let currentScale = 'Major';
 
-// ── DOM references ────────────────────────────────────────────────────────────
+// ── DOM refs ──────────────────────────────────────────────────────────────────
 
-const noteGrid    = document.getElementById('noteGrid');
-const degreeRow   = document.getElementById('degreeRow');
-const scaleTabs   = document.getElementById('scaleTabs');
+const noteStrip    = document.getElementById('noteStrip');
+const scaleTabs    = document.getElementById('scaleTabs');
 const sliderLabels = document.getElementById('sliderLabels');
-const rootSlider  = document.getElementById('rootSlider');
-const rootDisplay = document.getElementById('rootDisplay');
+const rootSlider   = document.getElementById('rootSlider');
+const rootDisplay  = document.getElementById('rootDisplay');
 
 // ── Build static DOM ──────────────────────────────────────────────────────────
 
-function buildGrid() {
-  for (let i = 0; i < 12; i++) {
+function buildStrip() {
+  for (let pos = 0; pos < STRIP_CELLS; pos++) {
+    const noteIdx = pos % 12;
+
     const cell = document.createElement('div');
     cell.className = 'note-cell';
-    cell.dataset.slot = i;
+    cell.dataset.pos = pos;
 
     const name = document.createElement('span');
     name.className = 'note-name';
+    name.textContent = NOTES[noteIdx];
 
     const flat = document.createElement('span');
     flat.className = 'note-flat';
+    flat.textContent = NOTE_FLATS[noteIdx];
 
-    cell.appendChild(name);
-    cell.appendChild(flat);
-    noteGrid.appendChild(cell);
+    const degree = document.createElement('span');
+    degree.className = 'note-degree';
 
-    // Degree label (below grid)
-    const deg = document.createElement('div');
-    deg.className = 'degree-cell';
-    deg.dataset.slot = i;
-    degreeRow.appendChild(deg);
+    cell.append(name, flat, degree);
+    noteStrip.appendChild(cell);
   }
 }
 
@@ -88,60 +98,77 @@ function buildSliderLabels() {
 
 // ── Render ────────────────────────────────────────────────────────────────────
 
-function render() {
+function render(skipTransition = false) {
   const scale = SCALES[currentScale];
   const intervalSet = new Set(scale.intervals);
-
-  // Build interval → degree label map for quick lookup
   const degreeByInterval = {};
-  scale.intervals.forEach((interval, i) => {
-    degreeByInterval[interval] = scale.degrees[i];
-  });
+  scale.intervals.forEach((iv, i) => { degreeByInterval[iv] = scale.degrees[i]; });
 
-  const cells = noteGrid.querySelectorAll('.note-cell');
-  const degreeCells = degreeRow.querySelectorAll('.degree-cell');
-  const sliderNoteLabels = sliderLabels.querySelectorAll('.slider-note-label');
+  // Slide the strip so rootIndex sits at the leftmost visible cell.
+  // We use the middle repetition (offset by 12) so there are cells
+  // on both sides to slide in from.
+  const offset = (rootIndex + 12) / STRIP_CELLS * 100;
 
-  // Each slot i represents (rootIndex + i) % 12 — root is always slot 0
-  cells.forEach((cell, i) => {
-    const noteIdx = (rootIndex + i) % 12;
-    const inScale = intervalSet.has(i);
-    const isRoot = i === 0;
+  if (skipTransition) {
+    noteStrip.style.transition = 'none';
+    noteStrip.style.transform  = `translateX(-${offset}%)`;
+    // Re-enable transition after paint
+    requestAnimationFrame(() => {
+      noteStrip.style.transition = `transform ${SLIDE_DURATION}`;
+    });
+  } else {
+    noteStrip.style.transition = `transform ${SLIDE_DURATION}`;
+    noteStrip.style.transform  = `translateX(-${offset}%)`;
+  }
 
-    cell.querySelector('.note-name').textContent = NOTES[noteIdx];
-    cell.querySelector('.note-flat').textContent = NOTE_FLATS[noteIdx];
+  // Update each cell's highlight based on its distance from root
+  noteStrip.querySelectorAll('.note-cell').forEach((cell, pos) => {
+    const noteIdx  = pos % 12;
+    const interval = (noteIdx - rootIndex + 12) % 12;
+    const inScale  = intervalSet.has(interval);
+    const isRoot   = interval === 0;
+
     cell.classList.toggle('active', inScale);
-    cell.classList.toggle('root', isRoot);
+    cell.classList.toggle('root',   isRoot);
 
-    const deg = degreeCells[i];
-    deg.classList.toggle('active', inScale);
-    deg.classList.toggle('root-degree', isRoot);
-    deg.textContent = degreeByInterval[i] ?? '';
+    const deg = cell.querySelector('.note-degree');
+    deg.textContent = degreeByInterval[interval] ?? '';
+    deg.classList.toggle('active',   inScale);
+    deg.classList.toggle('root-deg', isRoot);
   });
 
-  // Update slider labels
-  sliderNoteLabels.forEach((label, i) => {
+  // Slider labels
+  sliderLabels.querySelectorAll('.slider-note-label').forEach((label, i) => {
     label.classList.toggle('current', i === rootIndex);
   });
 
-  // Root display
+  // Root name display
   rootDisplay.textContent = NOTES[rootIndex];
 
-  // Slider fill
+  // Slider fill track
   const pct = (rootIndex / 11) * 100;
-  rootSlider.style.background = `linear-gradient(to right, var(--slider-fill) 0%, var(--slider-fill) ${pct}%, var(--slider-track) ${pct}%, var(--slider-track) 100%)`;
+  rootSlider.style.background =
+    `linear-gradient(to right, var(--slider-fill) 0%, var(--slider-fill) ${pct}%, var(--slider-track) ${pct}%, var(--slider-track) 100%)`;
 }
 
-// ── Events ────────────────────────────────────────────────────────────────────
+// ── Slider interaction ────────────────────────────────────────────────────────
+
+let prevRootIndex = rootIndex;
 
 rootSlider.addEventListener('input', e => {
-  rootIndex = parseInt(e.target.value, 10);
-  render();
+  const newIndex = parseInt(e.target.value, 10);
+  const delta    = Math.abs(newIndex - prevRootIndex);
+
+  // Skip animation for large jumps (user clicked the track rather than dragging)
+  // so the strip doesn't sweep across the whole keyboard
+  rootIndex = newIndex;
+  render(delta > 2);
+  prevRootIndex = newIndex;
 });
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 
-buildGrid();
+buildStrip();
 buildScaleTabs();
 buildSliderLabels();
-render();
+render(true); // no animation on first paint

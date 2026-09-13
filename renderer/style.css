@@ -117,23 +117,37 @@ html, body {
   box-shadow: 0 0 10px var(--accent-glow);
 }
 
-/* ── Note Grid ── */
-.note-grid {
-  display: grid;
-  grid-template-columns: repeat(12, 1fr);
-  gap: 6px;
+/* ── Note Strip ── */
+.note-strip-viewport {
+  overflow: hidden;
+  border-radius: var(--radius);
+}
+
+.note-strip {
+  display: flex;
+  /* 36 cells wide = 3× the 12-cell viewport */
+  width: 300%;
+  gap: 0;
+  /* smooth slide on root change */
+  transition: transform 0.32s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  will-change: transform;
 }
 
 .note-cell {
+  /* each cell = 1/36 of strip = 1/12 of viewport */
+  flex: 0 0 calc(100% / 36);
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: space-between;
   border-radius: var(--radius);
   border: 1px solid var(--note-inactive-border);
   background: var(--inactive-bg);
-  padding: 16px 6px;
-  transition: all 0.2s ease;
+  /* inner padding + a right padding gap simulates gutter without breaking strip math */
+  padding: 16px 3px 10px;
+  box-sizing: border-box;
+  /* background/border colour transitions */
+  transition: background 0.22s ease, border-color 0.22s ease, box-shadow 0.22s ease;
   position: relative;
   overflow: hidden;
   min-height: 90px;
@@ -190,36 +204,27 @@ html, body {
   margin-top: 2px;
   position: relative;
   z-index: 1;
+  min-height: 12px;
 }
 
 .note-cell.active .note-flat {
   color: var(--text-secondary);
 }
 
-/* ── Scale Degree Row ── */
-.degree-row {
-  display: grid;
-  grid-template-columns: repeat(12, 1fr);
-  gap: 6px;
-}
-
-.degree-cell {
-  text-align: center;
+/* ── In-cell degree label ── */
+.note-degree {
   font-size: 10px;
   letter-spacing: 0.06em;
   color: var(--text-dim);
-  transition: color 0.2s ease;
-  min-height: 14px;
+  transition: color 0.22s ease;
+  position: relative;
+  z-index: 1;
+  min-height: 13px;
+  line-height: 1;
 }
 
-.degree-cell.active {
-  color: var(--accent);
-}
-
-.degree-cell.root-degree {
-  color: var(--accent);
-  font-weight: 700;
-}
+.note-degree.active    { color: var(--accent); }
+.note-degree.root-deg  { color: var(--accent); font-weight: 700; }
 
 /* ── Slider Section ── */
 .slider-section {
