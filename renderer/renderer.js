@@ -44,11 +44,9 @@ function buildGrid() {
 
     const name = document.createElement('span');
     name.className = 'note-name';
-    name.textContent = NOTES[i];
 
     const flat = document.createElement('span');
     flat.className = 'note-flat';
-    flat.textContent = NOTE_FLATS[i];
 
     const degree = document.createElement('span');
     degree.className = 'note-degree';
@@ -99,20 +97,22 @@ function render() {
   const degreeCells = degreeRow.querySelectorAll('.degree-cell');
 
   cells.forEach((cell, i) => {
-    const interval = (i - rootIndex + 12) % 12;
-    const inScale  = intervalSet.has(interval);
-    const isRoot   = interval === 0;
+    // Slot i is always i semitones above the root — root is always slot 0
+    const noteIdx = (rootIndex + i) % 12;
+    const inScale = intervalSet.has(i);
+    const isRoot  = i === 0;
+
+    cell.querySelector('.note-name').textContent = NOTES[noteIdx];
+    cell.querySelector('.note-flat').textContent = NOTE_FLATS[noteIdx];
+    cell.querySelector('.note-degree').textContent = degreeByInterval[i] ?? '';
 
     cell.classList.toggle('active', inScale);
     cell.classList.toggle('root',   isRoot);
 
-    const deg = cell.querySelector('.note-degree');
-    deg.textContent = degreeByInterval[interval] ?? '';
-
     const degBelow = degreeCells[i];
     degBelow.classList.toggle('active',      inScale);
     degBelow.classList.toggle('root-degree', isRoot);
-    degBelow.textContent = degreeByInterval[interval] ?? '';
+    degBelow.textContent = degreeByInterval[i] ?? '';
   });
 
   sliderLabels.querySelectorAll('.slider-note-label').forEach((label, i) => {
