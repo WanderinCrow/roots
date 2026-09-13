@@ -4,7 +4,6 @@
 :root {
   --bg:          #0d0d0f;
   --surface:     #17171c;
-  --surface-2:   #1e1e26;
   --border:      #2a2a36;
   --accent:      #c084fc;
   --accent-glow: rgba(192, 132, 252, 0.35);
@@ -12,13 +11,14 @@
   --inactive-bg: #111116;
   --text-primary:   #f0eeff;
   --text-secondary: #7a7a9a;
-  --text-dim:       #3a3a4a;
-  --note-active-border: #c084fc;
-  --note-inactive-border: #22222e;
+  --text-dim:       #2e2e3e;
+  --active-border:  rgba(192, 132, 252, 0.45);
+  --inactive-border: #1c1c26;
   --slider-track: #2a2a36;
   --slider-fill:  #c084fc;
   --radius: 10px;
-  --radius-sm: 6px;
+  /* single transition speed used everywhere for consistency */
+  --t: 0.25s ease;
 }
 
 html, body {
@@ -30,13 +30,13 @@ html, body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* ── App Layout ── */
+/* ── Layout ── */
 .app {
   display: flex;
   flex-direction: column;
   height: 100vh;
   padding: 28px 32px 24px;
-  gap: 24px;
+  gap: 20px;
   -webkit-app-region: drag;
 }
 
@@ -44,7 +44,7 @@ html, body {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 16px;
   -webkit-app-region: no-drag;
 }
 
@@ -101,132 +101,131 @@ html, body {
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.15s ease;
   letter-spacing: 0.03em;
+  transition: border-color var(--t), color var(--t), background var(--t), box-shadow var(--t);
 }
 
-.scale-tab:hover {
-  border-color: var(--accent);
-  color: var(--text-primary);
-}
+.scale-tab:hover { border-color: var(--accent); color: var(--text-primary); }
 
 .scale-tab.active {
   background: var(--active-bg);
-  border-color: var(--note-active-border);
+  border-color: var(--active-border);
   color: var(--accent);
   box-shadow: 0 0 10px var(--accent-glow);
 }
 
-/* ── Note Strip ── */
-.note-strip-viewport {
-  overflow: hidden;
-  border-radius: var(--radius);
+/* ── Note Grid ── */
+.note-grid {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 6px;
 }
 
-.note-strip {
-  display: flex;
-  /* 36 cells wide = 3× the 12-cell viewport */
-  width: 300%;
-  gap: 0;
-  /* smooth slide on root change */
-  transition: transform 0.32s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-  will-change: transform;
-}
-
+/* ── Note Cells ── */
 .note-cell {
-  /* each cell = 1/36 of strip = 1/12 of viewport */
-  flex: 0 0 calc(100% / 36);
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
+  gap: 4px;
   border-radius: var(--radius);
-  border: 1px solid var(--note-inactive-border);
+  border: 1px solid var(--inactive-border);
   background: var(--inactive-bg);
-  /* inner padding + a right padding gap simulates gutter without breaking strip math */
-  padding: 16px 3px 10px;
-  box-sizing: border-box;
-  /* background/border colour transitions */
-  transition: background 0.22s ease, border-color 0.22s ease, box-shadow 0.22s ease;
+  padding: 16px 6px 12px;
+  min-height: 92px;
   position: relative;
   overflow: hidden;
-  min-height: 90px;
+  /* all colour/glow properties animate together */
+  transition:
+    background     var(--t),
+    border-color   var(--t),
+    box-shadow     var(--t);
 }
 
+/* radial glow overlay */
 .note-cell::before {
   content: '';
   position: absolute;
   inset: 0;
-  background: radial-gradient(ellipse at 50% 30%, var(--accent-glow), transparent 70%);
+  background: radial-gradient(ellipse at 50% 20%, var(--accent-glow), transparent 68%);
   opacity: 0;
-  transition: opacity 0.2s ease;
+  transition: opacity var(--t);
+  pointer-events: none;
 }
 
+/* ── In-scale state ── */
 .note-cell.active {
   background: var(--active-bg);
-  border-color: var(--note-active-border);
-  box-shadow: 0 0 14px var(--accent-glow), inset 0 1px 0 rgba(255,255,255,0.05);
+  border-color: var(--active-border);
 }
 
-.note-cell.active::before {
-  opacity: 1;
-}
+.note-cell.active::before { opacity: 1; }
 
+/* ── Root state — brighter glow, accent border ── */
 .note-cell.root {
   border-color: var(--accent);
-  box-shadow: 0 0 20px var(--accent-glow), 0 0 40px rgba(192, 132, 252, 0.15);
+  box-shadow: 0 0 18px var(--accent-glow), 0 0 38px rgba(192,132,252,0.12);
 }
 
+/* ── Text inside cells ── */
 .note-name {
   font-size: 16px;
   font-weight: 600;
   letter-spacing: 0.02em;
+  color: var(--text-dim);
   position: relative;
   z-index: 1;
-  transition: color 0.2s ease;
-  color: var(--text-dim);
+  transition: color var(--t), text-shadow var(--t);
 }
 
-.note-cell.active .note-name {
-  color: var(--text-primary);
-}
-
-.note-cell.root .note-name {
-  color: var(--accent);
-  text-shadow: 0 0 12px var(--accent-glow);
-}
+.note-cell.active .note-name  { color: var(--text-primary); }
+.note-cell.root   .note-name  { color: var(--accent); text-shadow: 0 0 10px var(--accent-glow); }
 
 .note-flat {
-  display: block;
   font-size: 9px;
-  color: var(--text-secondary);
+  color: transparent;           /* hidden when inactive */
   letter-spacing: 0.04em;
-  margin-top: 2px;
   position: relative;
   z-index: 1;
-  min-height: 12px;
+  min-height: 11px;
+  transition: color var(--t);
 }
 
-.note-cell.active .note-flat {
-  color: var(--text-secondary);
-}
+.note-cell.active .note-flat  { color: var(--text-secondary); }
 
-/* ── In-cell degree label ── */
 .note-degree {
   font-size: 10px;
-  letter-spacing: 0.06em;
-  color: var(--text-dim);
-  transition: color 0.22s ease;
+  letter-spacing: 0.05em;
+  color: transparent;           /* hidden when inactive */
   position: relative;
   z-index: 1;
   min-height: 13px;
-  line-height: 1;
+  transition: color var(--t), font-weight var(--t);
 }
 
-.note-degree.active    { color: var(--accent); }
-.note-degree.root-deg  { color: var(--accent); font-weight: 700; }
+.note-cell.active .note-degree  { color: var(--accent); }
+.note-cell.root   .note-degree  { font-weight: 700; }
 
-/* ── Slider Section ── */
+/* ── Degree row (below grid) ── */
+.degree-row {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 6px;
+}
+
+.degree-cell {
+  text-align: center;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+  min-height: 14px;
+  transition: color var(--t);
+}
+
+.degree-cell.active      { color: var(--accent); }
+.degree-cell.root-degree { font-weight: 700; }
+
+/* ── Slider section ── */
 .slider-section {
   margin-top: auto;
   background: var(--surface);
@@ -257,11 +256,7 @@ html, body {
   text-shadow: 0 0 12px var(--accent-glow);
   min-width: 32px;
   text-align: right;
-  transition: all 0.1s ease;
-}
-
-.slider-track-wrap {
-  position: relative;
+  transition: color var(--t);
 }
 
 .slider-note-labels {
@@ -275,14 +270,11 @@ html, body {
   font-size: 9px;
   letter-spacing: 0.04em;
   color: var(--text-dim);
-  transition: color 0.15s ease;
   line-height: 1;
+  transition: color var(--t), font-weight var(--t);
 }
 
-.slider-note-label.current {
-  color: var(--accent);
-  font-weight: 600;
-}
+.slider-note-label.current { color: var(--accent); font-weight: 600; }
 
 /* ── Range Slider ── */
 .root-slider {
@@ -291,28 +283,27 @@ html, body {
   appearance: none;
   height: 4px;
   border-radius: 2px;
-  background: var(--slider-track);
   outline: none;
   cursor: pointer;
 }
 
 .root-slider::-webkit-slider-thumb {
   -webkit-appearance: none;
-  appearance: none;
   width: 20px;
   height: 20px;
   border-radius: 50%;
   background: var(--accent);
   box-shadow: 0 0 12px var(--accent-glow), 0 2px 8px rgba(0,0,0,0.5);
-  cursor: pointer;
-  transition: transform 0.1s ease, box-shadow 0.1s ease;
+  cursor: grab;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
 }
 
 .root-slider::-webkit-slider-thumb:hover {
-  transform: scale(1.15);
-  box-shadow: 0 0 20px var(--accent-glow), 0 2px 8px rgba(0,0,0,0.5);
+  transform: scale(1.18);
+  box-shadow: 0 0 22px var(--accent-glow), 0 2px 8px rgba(0,0,0,0.5);
 }
 
 .root-slider:active::-webkit-slider-thumb {
-  transform: scale(1.2);
+  cursor: grabbing;
+  transform: scale(1.25);
 }
