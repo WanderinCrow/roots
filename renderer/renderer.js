@@ -158,13 +158,42 @@ let prevRootIndex = rootIndex;
 rootSlider.addEventListener('input', e => {
   const newIndex = parseInt(e.target.value, 10);
   const delta    = Math.abs(newIndex - prevRootIndex);
-
-  // Skip animation for large jumps (user clicked the track rather than dragging)
-  // so the strip doesn't sweep across the whole keyboard
   rootIndex = newIndex;
   render(delta > 2);
   prevRootIndex = newIndex;
 });
+
+// ── Scroll / trackpad interaction ─────────────────────────────────────────────
+// Horizontal trackpad swipe or mouse wheel both move the root.
+// deltaX  = two-finger side swipe on trackpad
+// deltaY  = mouse scroll wheel (vertical only wheel, treated as horizontal nav)
+// We accumulate until a threshold is crossed, then step once and reset.
+// A short cooldown prevents runaway stepping during high-velocity trackpad flings.
+
+let scrollAccum    = 0;
+let lastScrollTime = 0;
+const SCROLL_THRESHOLD = 35;  // px before a root step fires
+const SCROLL_COOLDOWN  = 80;  // ms minimum between steps
+
+document.addEventListener('wheel', e => {
+  e.preventDefault();
+
+  // Prefer horizontal axis; fall back to vertical for standard scroll wheels
+  const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+  scrollAccum += delta;
+
+  const now = Date.now();
+  if (Math.abs(scrollAccum) >= SCROLL_THRESHOLD && now - lastScrollTime >= SCROLL_COOLDOWN) {
+    const direction = scrollAccum > 0 ? 1 : -1;
+    scrollAccum    = 0;
+    lastScrollTime = now;
+
+    // Wrap around the chromatic circle (B → C and C → B)
+    rootIndex = (rootIndex + direction + 12) % 12;
+    rootSlider.value = rootIndex;
+    render();
+  }
+}, { passive: false });
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 
