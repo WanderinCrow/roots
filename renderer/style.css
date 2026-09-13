@@ -51,8 +51,8 @@ html, body {
 /* ── Header ── */
 .app-header {
   display: flex;
-  align-items: baseline;
-  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
   -webkit-app-region: drag;
 }
 
@@ -64,12 +64,41 @@ html, body {
   text-shadow: 0 0 24px var(--accent-glow);
 }
 
-.app-subtitle {
-  font-size: 11px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--text-secondary);
+/* ── Page Nav ── */
+.page-nav {
+  display: flex;
+  gap: 4px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 3px;
+  -webkit-app-region: no-drag;
 }
+
+.page-btn {
+  padding: 5px 18px;
+  border-radius: 16px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: background var(--t), color var(--t), box-shadow var(--t);
+}
+
+.page-btn:hover  { color: var(--text-primary); }
+
+.page-btn.active {
+  background: var(--active-bg);
+  color: var(--accent);
+  box-shadow: 0 0 10px var(--accent-glow);
+}
+
+/* ── Page sections ── */
+.page        { display: flex; flex-direction: column; gap: 16px; flex: 1; }
+.page.hidden { display: none; }
 
 /* ── Scale Tabs ── */
 .scale-selector {

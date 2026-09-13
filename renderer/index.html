@@ -8,20 +8,39 @@
 </head>
 <body>
   <div class="app">
+
+    <!-- ── Header ── -->
     <header class="app-header">
       <h1 class="app-title">ROOTS</h1>
-      <p class="app-subtitle">Scale Explorer</p>
+      <nav class="page-nav">
+        <button class="page-btn active" data-page="scales">Scales</button>
+        <button class="page-btn" data-page="chords">Chords</button>
+      </nav>
     </header>
 
     <main class="main-panel">
-      <div class="scale-selector">
-        <label class="selector-label">Scale</label>
-        <div class="scale-tabs" id="scaleTabs"></div>
-      </div>
 
-      <div class="note-grid" id="noteGrid"></div>
-      <div class="degree-row" id="degreeRow"></div>
+      <!-- ── Scale page ── -->
+      <section class="page" id="page-scales">
+        <div class="scale-selector">
+          <label class="selector-label">Scale</label>
+          <div class="scale-tabs" id="scaleTabs"></div>
+        </div>
+        <div class="note-grid" id="scaleGrid"></div>
+        <div class="degree-row" id="scaleDegreeRow"></div>
+      </section>
 
+      <!-- ── Chord page ── -->
+      <section class="page hidden" id="page-chords">
+        <div class="scale-selector">
+          <label class="selector-label">Chord</label>
+          <div class="scale-tabs" id="chordTabs"></div>
+        </div>
+        <div class="note-grid" id="chordGrid"></div>
+        <div class="degree-row" id="chordDegreeRow"></div>
+      </section>
+
+      <!-- ── Root slider (shared) ── -->
       <div class="slider-section">
         <div class="slider-meta">
           <span class="slider-label">Root</span>
@@ -40,6 +59,7 @@
           />
         </div>
       </div>
+
     </main>
   </div>
 
