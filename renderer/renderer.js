@@ -247,7 +247,7 @@ const chordGrid       = document.getElementById('chordGrid');
 const chordDegreeRow  = document.getElementById('chordDegreeRow');
 const scaleTabs       = document.getElementById('scaleTabs');
 const chordTabs       = document.getElementById('chordTabs');
-const tuningTabsEl    = document.getElementById('tuningTabs');
+const tuningSelectEl  = document.getElementById('tuningSelect');
 const sliderLabels    = document.getElementById('sliderLabels');
 const rootSlider      = document.getElementById('rootSlider');
 const rootDisplay     = document.getElementById('rootDisplay');
@@ -424,11 +424,17 @@ buildTabs(chordTabs, CHORDS,
   renderChords
 );
 
-buildTabs(tuningTabsEl, TUNINGS,
-  () => currentTuning,
-  v  => { currentTuning = v; },
-  renderChords
-);
+Object.keys(TUNINGS).forEach(name => {
+  const opt = document.createElement('option');
+  opt.value = name;
+  opt.textContent = name;
+  if (name === currentTuning) opt.selected = true;
+  tuningSelectEl.appendChild(opt);
+});
+tuningSelectEl.addEventListener('change', () => {
+  currentTuning = tuningSelectEl.value;
+  renderChords();
+});
 
 buildSliderLabels();
 render();
