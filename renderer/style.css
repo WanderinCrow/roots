@@ -235,6 +235,25 @@ html, body {
 .note-cell.active .note-degree  { color: var(--accent); }
 .note-cell.root   .note-degree  { font-weight: 700; }
 
+/* ── Tuning selector ── */
+.tuning-selector {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.tuning-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+/* Reuse scale-tab styles; tuning pills are slightly smaller */
+.tuning-tabs .scale-tab {
+  font-size: 11px;
+  padding: 4px 10px;
+}
+
 /* ── Chord diagram row ── */
 .chord-diagram-row {
   display: flex;

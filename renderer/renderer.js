@@ -41,66 +41,83 @@ const CHORDS = {
   'Power':      { intervals: [0,7],           degrees: ['1','5'] },
 };
 
-// ── Guitar Chord Voicings ─────────────────────────────────────────────────────
-// Two moveable shapes per chord type: E-shape (root on str6) and A-shape (root on str5).
-// Values are fret offsets relative to the root fret. -1 = muted string.
-// Open string note indices (semitone from C): E=4, A=9, D=2, G=7, B=11, e=4
-const OPEN_STRINGS = [4, 9, 2, 7, 11, 4]; // str6 → str1
+// ── Tunings ────────────────────────────────────────────────────────────────────
+// Open string semitone values (0=C) for each tuning, str6 (low) → str1 (high).
 
-const E_SHAPES = {
-  'Major':     [0, 2, 2, 1, 0, 0],
-  'Minor':     [0, 2, 2, 0, 0, 0],
-  'Dom 7':     [0, 2, 0, 1, 0, 0],
-  'Maj 7':     [0, 2, 1, 1, 0, 0],
-  'Min 7':     [0, 2, 0, 0, 0, 0],
-  'Min Maj 7': [0, 2, 1, 0, 0, 0],
-  'Dom 9':     [0, 2, 0, 1, 3, 2],
-  'Maj 9':     [0, 2, 1, 1, 0, 2],
-  'Min 9':     [0, 2, 0, 0, 3, 0],
-  'Maj 6':     [0, 2, 2, 1, 2, 0],
-  'Min 6':     [0, 2, 2, 0, 2, 0],
-  'Aug':       [-1, 3, 2, 1, 1, 0],
-  'Dim':       [0, 1, 2, 3, -1, -1],
-  'Dim 7':     [0, 1, 2, 0, 2, 0],
-  'Half Dim':  [0, 1, 2, 0, 0, 0],
-  'Sus 2':     [-1, 0, 2, 2, 0, 0],
-  'Sus 4':     [-1, 0, 2, 2, 3, 0],
-  'Power':     [0, 2, 2, -1, -1, -1],
+const TUNINGS = {
+  'Standard':  [4,  9,  2,  7,  11, 4],   // E  A  D  G  B  e
+  'Drop D':    [2,  9,  2,  7,  11, 4],   // D  A  D  G  B  e
+  'Open G':    [2,  7,  2,  7,  11, 2],   // D  G  D  G  B  D
+  'Open D':    [2,  9,  2,  6,  9,  2],   // D  A  D  F# A  D
+  'Open E':    [4,  11, 4,  8,  11, 4],   // E  B  E  G# B  e
+  'DADGAD':    [2,  9,  2,  7,  9,  2],   // D  A  D  G  A  D
+  'Half Down': [3,  8,  1,  6,  10, 3],   // Eb Ab Db Gb Bb Eb
+  'Full Down': [2,  7,  0,  5,  9,  2],   // D  G  C  F  A  D
+  'Drop C':    [0,  7,  0,  5,  9,  2],   // C  G  C  F  A  D
 };
 
-const A_SHAPES = {
-  'Major':     [-1, 0, 2, 2, 2, 0],
-  'Minor':     [-1, 0, 2, 2, 1, 0],
-  'Dom 7':     [-1, 0, 2, 0, 2, 0],
-  'Maj 7':     [-1, 0, 2, 1, 2, 0],
-  'Min 7':     [-1, 0, 2, 0, 1, 0],
-  'Min Maj 7': [-1, 0, 2, 1, 1, 0],
-  'Dom 9':     [-1, 0, 2, 0, 2, 3],
-  'Maj 9':     [-1, 0, 2, 1, 2, 2],
-  'Min 9':     [-1, 0, 2, 0, 1, 2],
-  'Maj 6':     [-1, 0, 2, 2, 2, 2],
-  'Min 6':     [-1, 0, 2, 2, 1, 2],
-  'Aug':       [-1, 0, 3, 2, 2, -1],
-  'Dim':       [-1, 0, 1, 2, 1, -1],
-  'Dim 7':     [-1, 0, 1, 2, 1, 2],
-  'Half Dim':  [-1, 0, 1, 2, 1, 0],
-  'Sus 2':     [-1, 0, 2, 2, 0, 0],
-  'Sus 4':     [-1, 0, 2, 2, 3, 0],
-  'Power':     [-1, 0, 2, 2, -1, -1],
-};
+// ── Voicing algorithm ─────────────────────────────────────────────────────────
+// For any tuning, scan a 4-fret window across the neck and find the best
+// fingering for the given chord. Returns { frets, startFret, rootStringIdx, baseFret }.
 
-// Returns { frets: [str6..str1], startFret, rootStringIdx }
-function getVoicing(chordName, rootIdx, preferE = false) {
-  const rootFretE = (rootIdx - 4 + 12) % 12;  // root on str6 (E)
-  const rootFretA = (rootIdx - 9 + 12) % 12;  // root on str5 (A)
-  const useE = preferE ? true : rootFretE <= rootFretA;
-  const shape = useE ? E_SHAPES[chordName] : A_SHAPES[chordName];
-  const rootFret = useE ? rootFretE : rootFretA;
-  return {
-    frets: shape.map(o => o === -1 ? -1 : rootFret + o),
-    startFret: rootFret,
-    rootStringIdx: useE ? 0 : 1,
-  };
+function computeVoicing(tuning, rootNote, chordIntervals, skipBaseFrets = new Set()) {
+  const chordSet = new Set(chordIntervals);
+
+  // All valid fret positions per string that produce a chord tone
+  const stringOpts = tuning.map(openNote => {
+    const opts = [];
+    for (let fret = 0; fret <= 15; fret++) {
+      const interval = ((openNote + fret) % 12 - rootNote + 12) % 12;
+      if (chordSet.has(interval)) opts.push({ fret, interval });
+    }
+    return opts;
+  });
+
+  let best = null, bestScore = Infinity;
+
+  for (let base = 0; base <= 9; base++) {
+    if (skipBaseFrets.has(base)) continue;
+    // base=0 → allow open strings (fret 0) and frets 1–5
+    // base>0 → only frets in [base, base+4]
+    const lo = base, hi = base + 4;
+
+    const voicing = stringOpts.map(opts => {
+      const valid = opts.filter(o => o.fret >= lo && o.fret <= hi);
+      if (!valid.length) return -1;
+      // Score each option: strongly prefer low frets, small bonus for root
+      valid.sort((a, b) =>
+        (a.fret * 2 - (a.interval === 0 ? 3 : 0)) -
+        (b.fret * 2 - (b.interval === 0 ? 3 : 0))
+      );
+      return valid[0].fret;
+    });
+
+    // Must include the root note somewhere
+    const hasRoot = voicing.some((f, s) =>
+      f >= 0 && ((tuning[s] + f) % 12 - rootNote + 12) % 12 === 0
+    );
+    if (!hasRoot) continue;
+
+    const active  = voicing.filter(f => f > 0);
+    const muted   = voicing.filter(f => f < 0).length;
+    const span    = active.length > 1 ? Math.max(...active) - Math.min(...active) : 0;
+    const score   = muted * 6 + span * 2 + base * 0.4;
+
+    if (score < bestScore) {
+      bestScore = score;
+      const minActive = active.length ? Math.min(...active) : 0;
+      best = {
+        frets: voicing,
+        startFret:    base === 0 ? 0 : minActive,
+        baseFret:     base,
+        rootStringIdx: voicing.findIndex((f, s) =>
+          f >= 0 && ((tuning[s] + f) % 12 - rootNote + 12) % 12 === 0
+        ),
+      };
+    }
+  }
+
+  return best;
 }
 
 // ── SVG chord diagram ─────────────────────────────────────────────────────────
@@ -195,12 +212,23 @@ function buildDiagram(container, label, { frets, startFret, rootStringIdx }) {
 }
 
 function renderDiagrams() {
-  const name = NOTES[rootIndex] + ' ' + currentChord;
-  const voicingA = getVoicing(currentChord, rootIndex, false); // natural shape
-  const voicingB = getVoicing(currentChord, rootIndex, !( (rootIndex - 4 + 12) % 12 <= (rootIndex - 9 + 12) % 12 )); // alternate shape
+  const chord     = CHORDS[currentChord];
+  const tuning    = TUNINGS[currentTuning];
+  const name      = `${NOTES[rootIndex]} ${currentChord}`;
 
-  buildDiagram(document.getElementById('chordDiagramA'), name, voicingA);
-  buildDiagram(document.getElementById('chordDiagramB'), name + ' (alt)', voicingB);
+  const vA = computeVoicing(tuning, rootIndex, chord.intervals, new Set());
+  const vB = computeVoicing(tuning, rootIndex, chord.intervals, new Set([vA?.baseFret ?? -1]));
+
+  const boxA = document.getElementById('chordDiagramA');
+  const boxB = document.getElementById('chordDiagramB');
+
+  if (vA) buildDiagram(boxA, `${currentTuning} · ${name}`, vA);
+  if (vB) {
+    buildDiagram(boxB, 'Alt position', vB);
+    boxB.style.display = '';
+  } else {
+    boxB.style.display = 'none';
+  }
 }
 
 // ── State ─────────────────────────────────────────────────────────────────────
@@ -208,6 +236,7 @@ function renderDiagrams() {
 let rootIndex     = 9;        // A
 let currentScale  = 'Major';
 let currentChord  = 'Major';
+let currentTuning = 'Standard';
 let currentPage   = 'scales';
 
 // ── DOM refs ──────────────────────────────────────────────────────────────────
@@ -218,6 +247,7 @@ const chordGrid       = document.getElementById('chordGrid');
 const chordDegreeRow  = document.getElementById('chordDegreeRow');
 const scaleTabs       = document.getElementById('scaleTabs');
 const chordTabs       = document.getElementById('chordTabs');
+const tuningTabsEl    = document.getElementById('tuningTabs');
 const sliderLabels    = document.getElementById('sliderLabels');
 const rootSlider      = document.getElementById('rootSlider');
 const rootDisplay     = document.getElementById('rootDisplay');
@@ -391,6 +421,12 @@ buildTabs(scaleTabs, SCALES,
 buildTabs(chordTabs, CHORDS,
   () => currentChord,
   v  => { currentChord = v; },
+  renderChords
+);
+
+buildTabs(tuningTabsEl, TUNINGS,
+  () => currentTuning,
+  v  => { currentTuning = v; },
   renderChords
 );
 
