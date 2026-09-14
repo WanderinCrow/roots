@@ -41,6 +41,168 @@ const CHORDS = {
   'Power':      { intervals: [0,7],           degrees: ['1','5'] },
 };
 
+// ── Guitar Chord Voicings ─────────────────────────────────────────────────────
+// Two moveable shapes per chord type: E-shape (root on str6) and A-shape (root on str5).
+// Values are fret offsets relative to the root fret. -1 = muted string.
+// Open string note indices (semitone from C): E=4, A=9, D=2, G=7, B=11, e=4
+const OPEN_STRINGS = [4, 9, 2, 7, 11, 4]; // str6 → str1
+
+const E_SHAPES = {
+  'Major':     [0, 2, 2, 1, 0, 0],
+  'Minor':     [0, 2, 2, 0, 0, 0],
+  'Dom 7':     [0, 2, 0, 1, 0, 0],
+  'Maj 7':     [0, 2, 1, 1, 0, 0],
+  'Min 7':     [0, 2, 0, 0, 0, 0],
+  'Min Maj 7': [0, 2, 1, 0, 0, 0],
+  'Dom 9':     [0, 2, 0, 1, 3, 2],
+  'Maj 9':     [0, 2, 1, 1, 0, 2],
+  'Min 9':     [0, 2, 0, 0, 3, 0],
+  'Maj 6':     [0, 2, 2, 1, 2, 0],
+  'Min 6':     [0, 2, 2, 0, 2, 0],
+  'Aug':       [-1, 3, 2, 1, 1, 0],
+  'Dim':       [0, 1, 2, 3, -1, -1],
+  'Dim 7':     [0, 1, 2, 0, 2, 0],
+  'Half Dim':  [0, 1, 2, 0, 0, 0],
+  'Sus 2':     [-1, 0, 2, 2, 0, 0],
+  'Sus 4':     [-1, 0, 2, 2, 3, 0],
+  'Power':     [0, 2, 2, -1, -1, -1],
+};
+
+const A_SHAPES = {
+  'Major':     [-1, 0, 2, 2, 2, 0],
+  'Minor':     [-1, 0, 2, 2, 1, 0],
+  'Dom 7':     [-1, 0, 2, 0, 2, 0],
+  'Maj 7':     [-1, 0, 2, 1, 2, 0],
+  'Min 7':     [-1, 0, 2, 0, 1, 0],
+  'Min Maj 7': [-1, 0, 2, 1, 1, 0],
+  'Dom 9':     [-1, 0, 2, 0, 2, 3],
+  'Maj 9':     [-1, 0, 2, 1, 2, 2],
+  'Min 9':     [-1, 0, 2, 0, 1, 2],
+  'Maj 6':     [-1, 0, 2, 2, 2, 2],
+  'Min 6':     [-1, 0, 2, 2, 1, 2],
+  'Aug':       [-1, 0, 3, 2, 2, -1],
+  'Dim':       [-1, 0, 1, 2, 1, -1],
+  'Dim 7':     [-1, 0, 1, 2, 1, 2],
+  'Half Dim':  [-1, 0, 1, 2, 1, 0],
+  'Sus 2':     [-1, 0, 2, 2, 0, 0],
+  'Sus 4':     [-1, 0, 2, 2, 3, 0],
+  'Power':     [-1, 0, 2, 2, -1, -1],
+};
+
+// Returns { frets: [str6..str1], startFret, rootStringIdx }
+function getVoicing(chordName, rootIdx, preferE = false) {
+  const rootFretE = (rootIdx - 4 + 12) % 12;  // root on str6 (E)
+  const rootFretA = (rootIdx - 9 + 12) % 12;  // root on str5 (A)
+  const useE = preferE ? true : rootFretE <= rootFretA;
+  const shape = useE ? E_SHAPES[chordName] : A_SHAPES[chordName];
+  const rootFret = useE ? rootFretE : rootFretA;
+  return {
+    frets: shape.map(o => o === -1 ? -1 : rootFret + o),
+    startFret: rootFret,
+    rootStringIdx: useE ? 0 : 1,
+  };
+}
+
+// ── SVG chord diagram ─────────────────────────────────────────────────────────
+
+const SVG_NS = 'http://www.w3.org/2000/svg';
+function svgEl(tag, attrs, text) {
+  const el = document.createElementNS(SVG_NS, tag);
+  Object.entries(attrs).forEach(([k, v]) => el.setAttribute(k, String(v)));
+  if (text !== undefined) el.textContent = text;
+  return el;
+}
+
+function buildDiagram(container, label, { frets, startFret, rootStringIdx }) {
+  // Layout constants
+  const SS = 22, FS = 26, PL = 30, PT = 40, PR = 20, PB = 12, FRET_ROWS = 5;
+  const GW = SS * 5, GH = FS * FRET_ROWS;
+  const W = GW + PL + PR, H = GH + PT + PB;
+  const sx = i => PL + i * SS;
+  const fy = f => PT + f * FS;
+
+  // Colors
+  const C_FRET = '#2a2a36', C_STR = '#38384a', C_NUT = '#9090aa';
+  const C_DOT = '#c084fc', C_ROOT = '#f0eeff', C_MUTE = '#444458', C_OPEN = '#6a6a8a';
+
+  const svg = svgEl('svg', { width: W, height: H, viewBox: `0 0 ${W} ${H}` });
+
+  // Nut or fret-position label
+  if (startFret === 0) {
+    svg.appendChild(svgEl('line', { x1: sx(0), y1: fy(0), x2: sx(5), y2: fy(0), stroke: C_NUT, 'stroke-width': 3.5, 'stroke-linecap': 'round' }));
+  } else {
+    svg.appendChild(svgEl('text', { x: PL - 8, y: fy(1) - FS / 2 + 4, 'text-anchor': 'end', 'font-size': 10, fill: C_OPEN, 'font-family': 'system-ui,sans-serif' }, `${startFret}fr`));
+  }
+
+  // Fret lines
+  for (let f = 0; f <= FRET_ROWS; f++) {
+    if (!(startFret === 0 && f === 0)) {
+      svg.appendChild(svgEl('line', { x1: sx(0), y1: fy(f), x2: sx(5), y2: fy(f), stroke: C_FRET, 'stroke-width': 1 }));
+    }
+  }
+
+  // String lines
+  for (let s = 0; s < 6; s++) {
+    svg.appendChild(svgEl('line', { x1: sx(s), y1: fy(0), x2: sx(s), y2: fy(FRET_ROWS), stroke: C_STR, 'stroke-width': 1.5 }));
+  }
+
+  // Barre detection: lowest active fret appearing on 2+ strings (barre chords only)
+  const activeFrets = frets.map((f, i) => ({ f, i })).filter(x => x.f > 0);
+  const minFret = activeFrets.length ? Math.min(...activeFrets.map(x => x.f)) : 0;
+  const barreGroup = activeFrets.filter(x => x.f === minFret);
+  const hasBarre = startFret > 0 && barreGroup.length >= 2;
+
+  if (hasBarre) {
+    const bFret = minFret - startFret + 1;
+    const barY  = fy(bFret) - FS / 2;
+    const x1 = sx(barreGroup[0].i), x2 = sx(barreGroup[barreGroup.length - 1].i);
+    svg.appendChild(svgEl('rect', { x: x1 - 7, y: barY - 7, width: x2 - x1 + 14, height: 14, rx: 7, fill: C_DOT, opacity: 0.88 }));
+  }
+
+  // Per-string markers
+  frets.forEach((fret, s) => {
+    const x = sx(s);
+    const isRoot = s === rootStringIdx;
+
+    if (fret === -1) {
+      // Muted ×
+      const y = PT - 16, sz = 4.5;
+      svg.appendChild(svgEl('line', { x1: x-sz, y1: y-sz, x2: x+sz, y2: y+sz, stroke: C_MUTE, 'stroke-width': 1.5, 'stroke-linecap': 'round' }));
+      svg.appendChild(svgEl('line', { x1: x+sz, y1: y-sz, x2: x-sz, y2: y+sz, stroke: C_MUTE, 'stroke-width': 1.5, 'stroke-linecap': 'round' }));
+    } else if (fret === 0) {
+      // Open ○
+      svg.appendChild(svgEl('circle', { cx: x, cy: PT - 16, r: 5, fill: 'none', stroke: isRoot ? C_DOT : C_OPEN, 'stroke-width': 1.5 }));
+    } else {
+      const dispFret = fret - startFret + 1;
+      if (dispFret >= 1 && dispFret <= FRET_ROWS) {
+        const isBarreDot = hasBarre && fret === minFret;
+        if (!isBarreDot) {
+          const cy = fy(dispFret) - FS / 2;
+          svg.appendChild(svgEl('circle', { cx: x, cy, r: 7, fill: C_DOT }));
+          if (isRoot) {
+            // White centre on root dot
+            svg.appendChild(svgEl('circle', { cx: x, cy, r: 3, fill: C_ROOT }));
+          }
+        }
+      }
+    }
+  });
+
+  container.querySelector('.diagram-label').textContent = label;
+  const svgWrap = container.querySelector('.diagram-svg');
+  svgWrap.innerHTML = '';
+  svgWrap.appendChild(svg);
+}
+
+function renderDiagrams() {
+  const name = NOTES[rootIndex] + ' ' + currentChord;
+  const voicingA = getVoicing(currentChord, rootIndex, false); // natural shape
+  const voicingB = getVoicing(currentChord, rootIndex, !( (rootIndex - 4 + 12) % 12 <= (rootIndex - 9 + 12) % 12 )); // alternate shape
+
+  buildDiagram(document.getElementById('chordDiagramA'), name, voicingA);
+  buildDiagram(document.getElementById('chordDiagramB'), name + ' (alt)', voicingB);
+}
+
 // ── State ─────────────────────────────────────────────────────────────────────
 
 let rootIndex     = 9;        // A
@@ -163,6 +325,7 @@ function renderChords() {
   const degreeByInterval = {};
   chord.intervals.forEach((iv, i) => { degreeByInterval[iv] = chord.degrees[i]; });
   renderGrid(chordGrid, chordDegreeRow, intervalSet, degreeByInterval);
+  renderDiagrams();
   renderShared();
 }
 

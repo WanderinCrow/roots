@@ -235,6 +235,32 @@ html, body {
 .note-cell.active .note-degree  { color: var(--accent); }
 .note-cell.root   .note-degree  { font-weight: 700; }
 
+/* ── Chord diagram row ── */
+.chord-diagram-row {
+  display: flex;
+  gap: 20px;
+  justify-content: center;
+  margin-top: 4px;
+}
+
+.chord-diagram-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.diagram-label {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.diagram-svg svg {
+  display: block;
+}
+
 /* ── Degree row (below grid) ── */
 .degree-row {
   display: grid;
