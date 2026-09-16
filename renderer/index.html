@@ -35,6 +35,13 @@
         <div class="scale-selector">
           <label class="selector-label">Chord</label>
           <div class="scale-tabs" id="chordTabs"></div>
+          <button class="play-btn" id="playChordBtn" title="Play chord">
+            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+              <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+              <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+            </svg>
+          </button>
         </div>
         <div class="note-grid" id="chordGrid"></div>
         <div class="degree-row" id="chordDegreeRow"></div>
@@ -43,39 +50,30 @@
           <select class="tuning-select" id="tuningSelect"></select>
         </div>
 
-        <div class="chord-diagram-row">
-          <div class="chord-diagram-box" id="chordDiagramA">
-            <span class="diagram-label" id="diagramLabelA"></span>
-            <div class="diagram-svg" id="diagramSvgA"></div>
-          </div>
-          <div class="chord-diagram-box" id="chordDiagramB">
-            <span class="diagram-label" id="diagramLabelB"></span>
-            <div class="diagram-svg" id="diagramSvgB"></div>
+        <div class="fretboard-wrap">
+          <div id="fretboardSvg"></div>
+          <div class="position-row">
+            <span class="selector-label">Position</span>
+            <input type="range" id="positionSlider" class="position-slider" min="0" max="8" value="0" step="1" />
+            <span class="position-display" id="positionDisplay">Open</span>
           </div>
         </div>
       </section>
 
-      <!-- ── Root slider (shared) ── -->
-      <div class="slider-section">
-        <div class="slider-meta">
-          <span class="slider-label">Root</span>
-          <span class="root-display" id="rootDisplay">A</span>
-        </div>
-        <div class="slider-track-wrap">
-          <div class="slider-note-labels" id="sliderLabels"></div>
-          <input
-            type="range"
-            id="rootSlider"
-            class="root-slider"
-            min="0"
-            max="11"
-            value="9"
-            step="1"
-          />
-        </div>
-      </div>
 
     </main>
+  </div>
+
+  <!-- ── Custom tuning modal ── -->
+  <div class="modal-overlay hidden" id="customTuningModal">
+    <div class="modal-box">
+      <p class="modal-title">Custom Tuning</p>
+      <div class="modal-strings" id="modalStrings"></div>
+      <div class="modal-footer">
+        <button class="modal-btn modal-btn-cancel" id="btnCustomCancel">Cancel</button>
+        <button class="modal-btn modal-btn-apply" id="btnCustomApply">Apply</button>
+      </div>
+    </div>
   </div>
 
   <script src="renderer.js"></script>

@@ -120,7 +120,7 @@ function computeVoicing(tuning, rootNote, chordIntervals, skipBaseFrets = new Se
   return best;
 }
 
-// ── SVG chord diagram ─────────────────────────────────────────────────────────
+// ── SVG helpers ───────────────────────────────────────────────────────────────
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 function svgEl(tag, attrs, text) {
@@ -130,105 +130,181 @@ function svgEl(tag, attrs, text) {
   return el;
 }
 
-function buildDiagram(container, label, { frets, startFret, rootStringIdx }) {
-  // Layout constants
-  const SS = 22, FS = 26, PL = 30, PT = 40, PR = 20, PB = 12, FRET_ROWS = 5;
-  const GW = SS * 5, GH = FS * FRET_ROWS;
-  const W = GW + PL + PR, H = GH + PT + PB;
-  const sx = i => PL + i * SS;
-  const fy = f => PT + f * FS;
+// ── Full fretboard ────────────────────────────────────────────────────────────
 
-  // Colors
-  const C_FRET = '#2a2a36', C_STR = '#38384a', C_NUT = '#9090aa';
-  const C_DOT = '#c084fc', C_ROOT = '#f0eeff', C_MUTE = '#444458', C_OPEN = '#6a6a8a';
+function buildFretboard(container, tuning, rootNote, chordIntervals, position) {
+  const chordSet = new Set(chordIntervals);
 
-  const svg = svgEl('svg', { width: W, height: H, viewBox: `0 0 ${W} ${H}` });
+  // Layout
+  const FRET_COUNT = 12;
+  const PL = 44, PR = 10, PT = 18, PB = 24;
+  const STR_SPACING = 22;
+  const FRET_W = 53;
+  const W = PL + FRET_COUNT * FRET_W + PR;
+  const H = PT + 5 * STR_SPACING + PB;
 
-  // Nut or fret-position label
-  if (startFret === 0) {
-    svg.appendChild(svgEl('line', { x1: sx(0), y1: fy(0), x2: sx(5), y2: fy(0), stroke: C_NUT, 'stroke-width': 3.5, 'stroke-linecap': 'round' }));
-  } else {
-    svg.appendChild(svgEl('text', { x: PL - 8, y: fy(1) - FS / 2 + 4, 'text-anchor': 'end', 'font-size': 10, fill: C_OPEN, 'font-family': 'system-ui,sans-serif' }, `${startFret}fr`));
-  }
+  // s=5 (high e) at top, s=0 (low E) at bottom
+  const sy    = s => PT + (5 - s) * STR_SPACING;
+  const dotX  = f => PL + (f - 0.5) * FRET_W;
+  const fretX = f => PL + f * FRET_W;
+  const openX = PL - 20;
 
-  // Fret lines
-  for (let f = 0; f <= FRET_ROWS; f++) {
-    if (!(startFret === 0 && f === 0)) {
-      svg.appendChild(svgEl('line', { x1: sx(0), y1: fy(f), x2: sx(5), y2: fy(f), stroke: C_FRET, 'stroke-width': 1 }));
-    }
-  }
+  const winLo = position;
+  const winHi = Math.min(position + 3, FRET_COUNT);
 
-  // String lines
-  for (let s = 0; s < 6; s++) {
-    svg.appendChild(svgEl('line', { x1: sx(s), y1: fy(0), x2: sx(s), y2: fy(FRET_ROWS), stroke: C_STR, 'stroke-width': 1.5 }));
-  }
+  const C_BG     = '#0f0f14';
+  const C_FRET   = '#2a2a38';
+  const C_STR    = '#3a3a50';
+  const C_NUT    = '#888899';
+  const C_DOT    = '#c084fc';
+  const C_ROOT   = '#f0eeff';
+  const C_DIM    = '#252535';
+  const C_INLAY  = '#1e1e2c';
+  const C_WIN_BG = 'rgba(192,132,252,0.06)';
+  const C_WIN_BR = 'rgba(192,132,252,0.25)';
+  const C_LABEL  = '#4a4a68';
 
-  // Barre detection: lowest active fret appearing on 2+ strings (barre chords only)
-  const activeFrets = frets.map((f, i) => ({ f, i })).filter(x => x.f > 0);
-  const minFret = activeFrets.length ? Math.min(...activeFrets.map(x => x.f)) : 0;
-  const barreGroup = activeFrets.filter(x => x.f === minFret);
-  const hasBarre = startFret > 0 && barreGroup.length >= 2;
-
-  if (hasBarre) {
-    const bFret = minFret - startFret + 1;
-    const barY  = fy(bFret) - FS / 2;
-    const x1 = sx(barreGroup[0].i), x2 = sx(barreGroup[barreGroup.length - 1].i);
-    svg.appendChild(svgEl('rect', { x: x1 - 7, y: barY - 7, width: x2 - x1 + 14, height: 14, rx: 7, fill: C_DOT, opacity: 0.88 }));
-  }
-
-  // Per-string markers
-  frets.forEach((fret, s) => {
-    const x = sx(s);
-    const isRoot = s === rootStringIdx;
-
-    if (fret === -1) {
-      // Muted ×
-      const y = PT - 16, sz = 4.5;
-      svg.appendChild(svgEl('line', { x1: x-sz, y1: y-sz, x2: x+sz, y2: y+sz, stroke: C_MUTE, 'stroke-width': 1.5, 'stroke-linecap': 'round' }));
-      svg.appendChild(svgEl('line', { x1: x+sz, y1: y-sz, x2: x-sz, y2: y+sz, stroke: C_MUTE, 'stroke-width': 1.5, 'stroke-linecap': 'round' }));
-    } else if (fret === 0) {
-      // Open ○
-      svg.appendChild(svgEl('circle', { cx: x, cy: PT - 16, r: 5, fill: 'none', stroke: isRoot ? C_DOT : C_OPEN, 'stroke-width': 1.5 }));
-    } else {
-      const dispFret = fret - startFret + 1;
-      if (dispFret >= 1 && dispFret <= FRET_ROWS) {
-        const isBarreDot = hasBarre && fret === minFret;
-        if (!isBarreDot) {
-          const cy = fy(dispFret) - FS / 2;
-          svg.appendChild(svgEl('circle', { cx: x, cy, r: 7, fill: C_DOT }));
-          if (isRoot) {
-            // White centre on root dot
-            svg.appendChild(svgEl('circle', { cx: x, cy, r: 3, fill: C_ROOT }));
-          }
-        }
-      }
-    }
+  const svg = svgEl('svg', {
+    width: '100%', height: '100%',
+    viewBox: `0 0 ${W} ${H}`,
+    preserveAspectRatio: 'xMidYMid meet'
   });
 
-  container.querySelector('.diagram-label').textContent = label;
-  const svgWrap = container.querySelector('.diagram-svg');
-  svgWrap.innerHTML = '';
-  svgWrap.appendChild(svg);
+  // Fretboard background
+  svg.appendChild(svgEl('rect', {
+    x: PL - 2, y: PT - 4,
+    width: FRET_COUNT * FRET_W + 4, height: 5 * STR_SPACING + 8,
+    fill: C_BG, rx: 4
+  }));
+
+  // Inlay markers
+  const midY = PT + 2.5 * STR_SPACING;
+  [3, 5, 7, 9].forEach(f => {
+    svg.appendChild(svgEl('circle', { cx: dotX(f), cy: midY, r: 3.5, fill: C_INLAY }));
+  });
+  // Double dot at fret 12
+  svg.appendChild(svgEl('circle', { cx: dotX(12), cy: midY - STR_SPACING, r: 3.5, fill: C_INLAY }));
+  svg.appendChild(svgEl('circle', { cx: dotX(12), cy: midY + STR_SPACING, r: 3.5, fill: C_INLAY }));
+
+  // Position window highlight
+  const winRectX = position === 0 ? 0 : fretX(position - 1);
+  const winRectW = position === 0 ? fretX(3) : FRET_W * 4;
+  svg.appendChild(svgEl('rect', {
+    x: winRectX, y: PT - 6,
+    width: winRectW, height: 5 * STR_SPACING + 12,
+    fill: C_WIN_BG, rx: 4,
+    stroke: C_WIN_BR, 'stroke-width': 1
+  }));
+
+  // Fret lines
+  for (let f = 1; f <= FRET_COUNT; f++) {
+    svg.appendChild(svgEl('line', {
+      x1: fretX(f), y1: PT,
+      x2: fretX(f), y2: PT + 5 * STR_SPACING,
+      stroke: C_FRET, 'stroke-width': 1
+    }));
+  }
+
+  // Nut
+  svg.appendChild(svgEl('line', {
+    x1: PL, y1: PT,
+    x2: PL, y2: PT + 5 * STR_SPACING,
+    stroke: C_NUT, 'stroke-width': 4
+  }));
+
+  // String lines (thicker = lower string)
+  const thicknesses = [2.2, 1.8, 1.5, 1.3, 1.1, 0.9];
+  for (let s = 0; s < 6; s++) {
+    svg.appendChild(svgEl('line', {
+      x1: 0, y1: sy(s), x2: W, y2: sy(s),
+      stroke: C_STR, 'stroke-width': thicknesses[s]
+    }));
+  }
+
+  // String name labels — derived from tuning so they update with tuning changes
+  for (let s = 0; s < 6; s++) {
+    svg.appendChild(svgEl('text', {
+      x: openX - 10, y: sy(s) + 4,
+      'text-anchor': 'middle', 'font-size': 9,
+      fill: C_LABEL, 'font-family': 'system-ui,sans-serif'
+    }, NOTES[tuning[s]]));
+  }
+
+  // Fret number labels
+  for (let f = 1; f <= FRET_COUNT; f++) {
+    svg.appendChild(svgEl('text', {
+      x: dotX(f), y: H - 6,
+      'text-anchor': 'middle', 'font-size': 8,
+      fill: C_LABEL, 'font-family': 'system-ui,sans-serif'
+    }, String(f)));
+  }
+
+  // Chord tone dots — all positions, dimmed outside window
+  for (let s = 0; s < 6; s++) {
+    for (let fret = 0; fret <= FRET_COUNT; fret++) {
+      const interval = ((tuning[s] + fret) % 12 - rootNote + 12) % 12;
+      if (!chordSet.has(interval)) continue;
+
+      const isRoot   = interval === 0;
+      const inWin    = fret >= winLo && fret <= winHi;
+      const cy       = sy(s);
+      const noteName = NOTES[(tuning[s] + fret) % 12];
+
+      if (fret === 0) {
+        // Open string: hollow circle left of nut
+        const stroke = inWin ? C_DOT : C_DIM;
+        svg.appendChild(svgEl('circle', {
+          cx: openX, cy, r: 8,
+          fill: inWin ? 'rgba(192,132,252,0.15)' : 'none',
+          stroke, 'stroke-width': isRoot && inWin ? 2.5 : 1.8
+        }));
+        svg.appendChild(svgEl('text', {
+          x: openX, y: cy + 3.5,
+          'text-anchor': 'middle',
+          'font-size': noteName.length > 1 ? 5.5 : 7,
+          'font-weight': isRoot && inWin ? '700' : '400',
+          fill: inWin ? C_ROOT : '#3a3a58',
+          'font-family': 'system-ui,sans-serif'
+        }, noteName));
+      } else {
+        const cx = dotX(fret);
+        svg.appendChild(svgEl('circle', { cx, cy, r: 8, fill: inWin ? C_DOT : C_DIM }));
+        // Root: white ring outline
+        if (isRoot && inWin) {
+          svg.appendChild(svgEl('circle', {
+            cx, cy, r: 8, fill: 'none',
+            stroke: C_ROOT, 'stroke-width': 1.5
+          }));
+        }
+        svg.appendChild(svgEl('text', {
+          x: cx, y: cy + 3.5,
+          'text-anchor': 'middle',
+          'font-size': noteName.length > 1 ? 5.5 : 7,
+          'font-weight': isRoot && inWin ? '700' : '400',
+          fill: inWin ? C_ROOT : '#3a3a58',
+          'font-family': 'system-ui,sans-serif'
+        }, noteName));
+      }
+    }
+  }
+
+  container.innerHTML = '';
+  container.appendChild(svg);
 }
 
-function renderDiagrams() {
-  const chord     = CHORDS[currentChord];
-  const tuning    = TUNINGS[currentTuning];
-  const name      = `${NOTES[rootIndex]} ${currentChord}`;
+function getActiveTuning() {
+  return currentTuning === 'Custom' ? customTuning : TUNINGS[currentTuning];
+}
 
-  const vA = computeVoicing(tuning, rootIndex, chord.intervals, new Set());
-  const vB = computeVoicing(tuning, rootIndex, chord.intervals, new Set([vA?.baseFret ?? -1]));
-
-  const boxA = document.getElementById('chordDiagramA');
-  const boxB = document.getElementById('chordDiagramB');
-
-  if (vA) buildDiagram(boxA, `${currentTuning} · ${name}`, vA);
-  if (vB) {
-    buildDiagram(boxB, 'Alt position', vB);
-    boxB.style.display = '';
-  } else {
-    boxB.style.display = 'none';
-  }
+function renderFretboard() {
+  buildFretboard(
+    fretboardSvgEl,
+    getActiveTuning(),
+    rootIndex,
+    CHORDS[currentChord].intervals,
+    currentPosition
+  );
+  positionDisplayEl.textContent = currentPosition === 0 ? 'Open' : `Fret ${currentPosition}`;
 }
 
 // ── State ─────────────────────────────────────────────────────────────────────
@@ -236,8 +312,11 @@ function renderDiagrams() {
 let rootIndex     = 9;        // A
 let currentScale  = 'Major';
 let currentChord  = 'Major';
-let currentTuning = 'Standard';
-let currentPage   = 'scales';
+let currentTuning   = 'Standard';
+let previousTuning  = 'Standard';
+let customTuning    = [...TUNINGS['Standard']];
+let currentPage     = 'scales';
+let currentPosition = 0;
 
 // ── DOM refs ──────────────────────────────────────────────────────────────────
 
@@ -248,9 +327,9 @@ const chordDegreeRow  = document.getElementById('chordDegreeRow');
 const scaleTabs       = document.getElementById('scaleTabs');
 const chordTabs       = document.getElementById('chordTabs');
 const tuningSelectEl  = document.getElementById('tuningSelect');
-const sliderLabels    = document.getElementById('sliderLabels');
-const rootSlider      = document.getElementById('rootSlider');
-const rootDisplay     = document.getElementById('rootDisplay');
+const fretboardSvgEl    = document.getElementById('fretboardSvg');
+const positionSliderEl  = document.getElementById('positionSlider');
+const positionDisplayEl = document.getElementById('positionDisplay');
 
 // ── Build DOM helpers ─────────────────────────────────────────────────────────
 
@@ -269,6 +348,10 @@ function buildNoteGrid(gridEl, degreeRowEl) {
     degree.className = 'note-degree';
 
     cell.append(name, flat, degree);
+    cell.addEventListener('click', () => {
+      rootIndex = (rootIndex + i) % 12;
+      render();
+    });
     gridEl.appendChild(cell);
 
     const deg = document.createElement('div');
@@ -290,15 +373,6 @@ function buildTabs(containerEl, data, getCurrent, setCurrent, renderFn) {
     });
     containerEl.appendChild(tab);
   });
-}
-
-function buildSliderLabels() {
-  for (let i = 0; i < 12; i++) {
-    const label = document.createElement('div');
-    label.className = 'slider-note-label';
-    label.textContent = NOTES[i];
-    sliderLabels.appendChild(label);
-  }
 }
 
 // ── Render helpers ────────────────────────────────────────────────────────────
@@ -326,18 +400,6 @@ function renderGrid(gridEl, degreeRowEl, intervalSet, degreeByInterval) {
   });
 }
 
-function renderShared() {
-  sliderLabels.querySelectorAll('.slider-note-label').forEach((label, i) => {
-    label.classList.toggle('current', i === rootIndex);
-  });
-
-  rootDisplay.textContent = NOTES[rootIndex];
-
-  const pct = (rootIndex / 11) * 100;
-  rootSlider.style.background =
-    `linear-gradient(to right, var(--slider-fill) 0%, var(--slider-fill) ${pct}%, var(--slider-track) ${pct}%, var(--slider-track) 100%)`;
-}
-
 // ── Page renders ──────────────────────────────────────────────────────────────
 
 function renderScales() {
@@ -346,7 +408,6 @@ function renderScales() {
   const degreeByInterval = {};
   scale.intervals.forEach((iv, i) => { degreeByInterval[iv] = scale.degrees[i]; });
   renderGrid(scaleGrid, scaleDegreeRow, intervalSet, degreeByInterval);
-  renderShared();
 }
 
 function renderChords() {
@@ -355,8 +416,7 @@ function renderChords() {
   const degreeByInterval = {};
   chord.intervals.forEach((iv, i) => { degreeByInterval[iv] = chord.degrees[i]; });
   renderGrid(chordGrid, chordDegreeRow, intervalSet, degreeByInterval);
-  renderDiagrams();
-  renderShared();
+  renderFretboard();
 }
 
 function render() {
@@ -377,40 +437,76 @@ document.querySelectorAll('.page-btn').forEach(btn => {
   });
 });
 
-// ── Slider ────────────────────────────────────────────────────────────────────
-
-rootSlider.addEventListener('input', e => {
-  rootIndex = parseInt(e.target.value, 10);
-  render();
-});
-
-// ── Scroll / trackpad ─────────────────────────────────────────────────────────
+// ── Scroll over note grid ─────────────────────────────────────────────────────
 
 let scrollAccum    = 0;
 let lastScrollTime = 0;
 const SCROLL_THRESHOLD = 35;
 const SCROLL_COOLDOWN  = 80;
 
-document.addEventListener('wheel', e => {
+function handleGridWheel(e) {
   e.preventDefault();
   const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
   scrollAccum += delta;
-
   const now = Date.now();
   if (Math.abs(scrollAccum) >= SCROLL_THRESHOLD && now - lastScrollTime >= SCROLL_COOLDOWN) {
-    const dir   = scrollAccum > 0 ? 1 : -1;
-    scrollAccum    = 0;
+    const dir = scrollAccum > 0 ? 1 : -1;
+    scrollAccum = 0;
     lastScrollTime = now;
     rootIndex = (rootIndex + dir + 12) % 12;
-    rootSlider.value = rootIndex;
     render();
   }
-}, { passive: false });
+}
+
+// ── Chord playback ────────────────────────────────────────────────────────────
+
+function playChord() {
+  const ctx = new AudioContext();
+  const chord = CHORDS[currentChord];
+
+  // C4 = 261.63 Hz; shift by rootIndex semitones
+  const rootFreq = 261.63 * Math.pow(2, rootIndex / 12);
+
+  const compressor = ctx.createDynamicsCompressor();
+  compressor.threshold.value = -18;
+  compressor.knee.value = 8;
+  compressor.ratio.value = 4;
+  compressor.connect(ctx.destination);
+
+  // Bass root one octave down, then strum chord tones upward
+  const voices = [
+    { freq: rootFreq / 2, delay: 0 },
+    ...chord.intervals.map((iv, i) => ({
+      freq: rootFreq * Math.pow(2, iv / 12),
+      delay: (i + 1) * 0.055,
+    })),
+  ];
+
+  voices.forEach(({ freq, delay }) => {
+    const osc  = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.value = freq;
+    const t = ctx.currentTime + delay;
+    gain.gain.setValueAtTime(0, t);
+    gain.gain.linearRampToValueAtTime(0.22, t + 0.012);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 2.4);
+    osc.connect(gain);
+    gain.connect(compressor);
+    osc.start(t);
+    osc.stop(t + 2.4);
+  });
+}
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 
 buildNoteGrid(scaleGrid, scaleDegreeRow);
 buildNoteGrid(chordGrid, chordDegreeRow);
+
+scaleGrid.addEventListener('wheel', handleGridWheel, { passive: false });
+chordGrid.addEventListener('wheel', handleGridWheel, { passive: false });
+
+document.getElementById('playChordBtn').addEventListener('click', playChord);
 
 buildTabs(scaleTabs, SCALES,
   () => currentScale,
@@ -431,10 +527,88 @@ Object.keys(TUNINGS).forEach(name => {
   if (name === currentTuning) opt.selected = true;
   tuningSelectEl.appendChild(opt);
 });
+// Custom tuning option
+const customOpt = document.createElement('option');
+customOpt.value = 'Custom';
+customOpt.textContent = 'Custom…';
+tuningSelectEl.appendChild(customOpt);
+
 tuningSelectEl.addEventListener('change', () => {
-  currentTuning = tuningSelectEl.value;
+  if (tuningSelectEl.value === 'Custom') {
+    previousTuning = currentTuning;
+    openCustomTuningModal();
+  } else {
+    currentTuning = tuningSelectEl.value;
+    renderChords();
+  }
+});
+
+positionSliderEl.addEventListener('input', e => {
+  currentPosition = parseInt(e.target.value, 10);
+  renderFretboard();
+});
+
+// ── Custom tuning modal ────────────────────────────────────────────────────────
+
+const customModal   = document.getElementById('customTuningModal');
+const modalStrings  = document.getElementById('modalStrings');
+const btnApply      = document.getElementById('btnCustomApply');
+const btnCancel     = document.getElementById('btnCustomCancel');
+
+const STRING_LABELS = ['6 · Low E', '5', '4', '3', '2', '1 · High e'];
+
+function openCustomTuningModal() {
+  // Populate selects with current customTuning values
+  modalStrings.innerHTML = '';
+  // Display high e (index 5) at top, low E (index 0) at bottom
+  for (let i = 5; i >= 0; i--) {
+    const row = document.createElement('div');
+    row.className = 'modal-string-row';
+
+    const lbl = document.createElement('span');
+    lbl.className = 'modal-string-label';
+    lbl.textContent = `String ${STRING_LABELS[i]}`;
+
+    const sel = document.createElement('select');
+    sel.className = 'tuning-select modal-note-select';
+    sel.dataset.stringIndex = i;
+    NOTES.forEach((note, idx) => {
+      const opt = document.createElement('option');
+      opt.value = idx;
+      opt.textContent = note;
+      if (idx === customTuning[i]) opt.selected = true;
+      sel.appendChild(opt);
+    });
+
+    row.append(lbl, sel);
+    modalStrings.appendChild(row);
+  }
+  customModal.classList.remove('hidden');
+}
+
+btnApply.addEventListener('click', () => {
+  modalStrings.querySelectorAll('.modal-note-select').forEach(sel => {
+    customTuning[parseInt(sel.dataset.stringIndex)] = parseInt(sel.value);
+  });
+  currentTuning = 'Custom';
+  customModal.classList.add('hidden');
   renderChords();
 });
 
-buildSliderLabels();
+function closeModal() {
+  tuningSelectEl.value = previousTuning;
+  currentTuning = previousTuning;
+  customModal.classList.add('hidden');
+}
+
+btnCancel.addEventListener('click', closeModal);
+
+customModal.addEventListener('click', e => {
+  if (e.target === customModal) closeModal();
+});
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && !customModal.classList.contains('hidden')) closeModal();
+});
+
 render();
