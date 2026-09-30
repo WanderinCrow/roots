@@ -230,12 +230,24 @@ function buildFretboard(container, tuning, rootNote, chordIntervals, position) {
     }, NOTES[tuning[s]]));
   }
 
-  // Fret number labels
+  // Fret number labels (clickable — transparent hit rect + styled text)
   for (let f = 1; f <= FRET_COUNT; f++) {
+    const labelInWin = f >= winLo && f <= winHi;
+    // Wide transparent click target over the label row
+    svg.appendChild(svgEl('rect', {
+      x: dotX(f) - FRET_W / 2, y: H - PB,
+      width: FRET_W, height: PB,
+      fill: 'transparent', cursor: 'pointer',
+      'data-fret-btn': Math.min(f, 9)
+    }));
     svg.appendChild(svgEl('text', {
       x: dotX(f), y: H - 6,
-      'text-anchor': 'middle', 'font-size': 8,
-      fill: C_LABEL, 'font-family': 'system-ui,sans-serif'
+      'text-anchor': 'middle',
+      'font-size': labelInWin ? 9 : 8,
+      'font-weight': labelInWin ? '700' : '400',
+      fill: labelInWin ? C_DOT : C_LABEL,
+      'font-family': 'system-ui,sans-serif',
+      'pointer-events': 'none'
     }, String(f)));
   }
 
@@ -507,6 +519,14 @@ scaleGrid.addEventListener('wheel', handleGridWheel, { passive: false });
 chordGrid.addEventListener('wheel', handleGridWheel, { passive: false });
 
 document.getElementById('playChordBtn').addEventListener('click', playChord);
+
+fretboardSvgEl.addEventListener('click', e => {
+  const fret = e.target.dataset.fretBtn;
+  if (fret === undefined) return;
+  currentPosition = parseInt(fret, 10);
+  positionSliderEl.value = currentPosition;
+  renderFretboard();
+});
 
 buildTabs(scaleTabs, SCALES,
   () => currentScale,
